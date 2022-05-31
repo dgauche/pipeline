@@ -15,9 +15,14 @@
 package pke
 
 import (
-	"github.com/pkg/errors"
+	"context"
+
+	"emperror.dev/errors"
+	"github.com/mitchellh/mapstructure"
 
 	"github.com/banzaicloud/pipeline/internal/global"
+	internalPke "github.com/banzaicloud/pipeline/internal/providers/pke"
+	"github.com/banzaicloud/pipeline/pkg/cloudinfo"
 	"github.com/banzaicloud/pipeline/pkg/common"
 )
 
@@ -45,6 +50,7 @@ func (a *UpdateClusterPKE) Validate() error {
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -161,6 +167,38 @@ func (pke *CreateClusterPKE) AddDefaults() error {
 	}
 	if pke.Network.Provider == "" {
 		pke.Network.Provider = NetworkProvider(global.Config.Distribution.PKE.Amazon.DefaultNetworkProvider)
+	}
+
+	return nil
+}
+
+func (pke *CreateClusterPKE) Validate(spotPriceValidator cloudinfo.SpotPriceValidator, location, cloud string) error {
+	var errs []error
+
+	if cloud == "amazon" {
+		for _, np := range pke.NodePools {
+			providerConfig := internalPke.NodePoolProviderConfigAmazon{}
+			if err := mapstructure.Decode(np.ProviderConfig, &providerConfig); err != nil {
+				return errors.WrapIff(err, "decoding nodepool %q config", np.Name)
+			}
+
+			err := spotPriceValidator.ValidateSpotPrice(
+				context.Background(),
+				"amazon",
+				"pke",
+				location,
+				providerConfig.AutoScalingGroup.InstanceType,
+				string(providerConfig.AutoScalingGroup.Zones[0]),
+				providerConfig.AutoScalingGroup.SpotPrice,
+			)
+			if err != nil {
+				errs = append(errs, err)
+			}
+		}
+	}
+
+	if err := errors.Combine(errs...); err != nil {
+		return err
 	}
 
 	return nil

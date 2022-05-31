@@ -24,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/banzaicloud/pipeline/internal/cluster/distribution/eks/ekscluster"
+	"github.com/banzaicloud/pipeline/pkg/cloudinfo"
 	"github.com/banzaicloud/pipeline/pkg/cluster/aks"
 	"github.com/banzaicloud/pipeline/pkg/cluster/gke"
 	"github.com/banzaicloud/pipeline/pkg/cluster/kubernetes"
@@ -325,19 +326,19 @@ func (r *CreateClusterRequest) AddDefaults() error {
 }
 
 // Validate checks the request fields
-func (r *CreateClusterRequest) Validate() error {
+func (r *CreateClusterRequest) Validate(spotPriceValidator cloudinfo.SpotPriceValidator) error {
 	if err := r.validateMainFields(); err != nil {
 		return err
 	}
 
 	switch r.Cloud {
 	case Amazon:
-		// eks validate
+		// pke validate
 		if r.Properties.CreateClusterPKE != nil {
-			// r.Properties.CreateClusterPKE.Validate()
-			return nil
+			return r.Properties.CreateClusterPKE.Validate(spotPriceValidator, r.Location, r.Cloud)
 		}
-		return r.Properties.CreateClusterEKS.Validate()
+		// eks validate
+		return r.Properties.CreateClusterEKS.Validate(spotPriceValidator, r.Location)
 	case Azure:
 		// aks validate
 		return r.Properties.CreateClusterAKS.Validate()
