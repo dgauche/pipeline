@@ -7,7 +7,10 @@ go_library(
     visibility = ["PUBLIC"],
     deps = [
         "//internal/global",
+        "//internal/providers/pke",
+        "//pkg/cloudinfo",
         "//pkg/common",
-        "//third_party/go:github.com__pkg__errors",
+        "//third_party/go:emperror.dev__errors",
+        "//third_party/go:github.com__mitchellh__mapstructure",
     ],
 )
